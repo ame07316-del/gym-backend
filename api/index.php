@@ -1,7 +1,7 @@
 <?php
 
-// 1. إنشاء مجلدات الـ Storage المؤقتة في Serverless
 $tmpStorage = '/tmp/storage';
+
 $directories = [
     $tmpStorage . '/app',
     $tmpStorage . '/framework/cache/data',
@@ -16,7 +16,6 @@ foreach ($directories as $dir) {
     }
 }
 
-// 2. إعداد قيم البيئة الأساسية
 putenv('APP_ENV=production');
 putenv('APP_DEBUG=true');
 putenv('LOG_CHANNEL=stderr');
@@ -30,11 +29,18 @@ if (empty($_ENV['APP_KEY']) && empty(getenv('APP_KEY'))) {
     $_ENV['APP_KEY'] = $defaultKey;
 }
 
-// 3. تحميل Bootstrap من لارافيل
 require __DIR__ . '/../vendor/autoload.php';
 $app = require_once __DIR__ . '/../bootstrap/app.php';
 
-// 4. تعيين المسار وإرسال الطلب عبر المعالج الافتراضي
 $app->useStoragePath($tmpStorage);
 
-return $app;
+// معالجة الطلب وإرجاع الـ HTML
+$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+
+$response = $kernel->handle(
+    $request = Illuminate\Http\Request::capture()
+);
+
+$response->send();
+
+$kernel->terminate($request, $response);
