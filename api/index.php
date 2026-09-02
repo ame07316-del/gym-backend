@@ -8,6 +8,7 @@ $directories = [
     $tmpStorage . '/framework/sessions',
     $tmpStorage . '/framework/views',
     $tmpStorage . '/logs',
+    $tmpStorage . '/database',
 ];
 
 foreach ($directories as $dir) {
@@ -16,9 +17,22 @@ foreach ($directories as $dir) {
     }
 }
 
-putenv('APP_ENV=production');
+// نقل أو إنشاء قاعدة بيانات SQLite في /tmp
+$dbPath = $tmpStorage . '/database/database.sqlite';
+if (!file_exists($dbPath)) {
+    if (file_exists(__DIR__ . '/../database/database.sqlite')) {
+        copy(__DIR__ . '/../database/database.sqlite', $dbPath);
+    } else {
+        touch($dbPath);
+    }
+}
+
+// ضبط متغيرات البيئة
+putenv('APP_ENV=local');
 putenv('APP_DEBUG=true');
 putenv('LOG_CHANNEL=stderr');
+putenv('DB_CONNECTION=sqlite');
+putenv("DB_DATABASE={$dbPath}");
 putenv('CACHE_STORE=array');
 putenv('SESSION_DRIVER=cookie');
 putenv('VIEW_COMPILED_PATH=' . $tmpStorage . '/framework/views');
@@ -29,18 +43,24 @@ if (empty($_ENV['APP_KEY']) && empty(getenv('APP_KEY'))) {
     $_ENV['APP_KEY'] = $defaultKey;
 }
 
-require __DIR__ . '/../vendor/autoload.php';
-$app = require_once __DIR__ . '/../bootstrap/app.php';
+try {
+    require __DIR__ . '/../vendor/autoload.php';
+    $app = require_once __DIR__ . '/../bootstrap/app.php';
 
-$app->useStoragePath($tmpStorage);
+    $app->useStoragePath($tmpStorage);
 
-// معالجة الطلب وإرجاع الـ HTML
-$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+    $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
-$response = $kernel->handle(
-    $request = Illuminate\Http\Request::capture()
-);
+    $response = $kernel->handle(
+        $request = Illuminate\Http\Request::capture()
+    );
 
-$response->send();
-
-$kernel->terminate($request, $response);
+    $response->send();
+    $kernel->terminate($request, $response);
+} catch (\Throwable $e) {
+    http_response_code(500);
+    echo '<h1>Deployment Exception:</h1>';
+    echo '<p><b>Message:</b> ' . htmlspecialchars($e->getMessage()) . '</p>';
+    echo '<p><b>File:</b> ' . htmlspecialchars($e->getFile()) . ' on line ' . $e->getLine() . '</p>';
+    echo '<pre>' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
+}
