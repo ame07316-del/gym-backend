@@ -1,6 +1,5 @@
 <?php
 
-// 1. إظهار أي خطأ PHP صريح فوراً
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -32,19 +31,20 @@ if (empty($_ENV['APP_KEY']) && empty(getenv('APP_KEY'))) {
     putenv("APP_KEY={$defaultKey}");
     $_ENV['APP_KEY'] = $defaultKey;
 }
+
 try {
     require __DIR__ . '/../vendor/autoload.php';
     $app = require_once __DIR__ . '/../bootstrap/app.php';
 
+    // 1. ضبط مسارات التخزين والـ Views فوراً
     $app->useStoragePath($tmpStorage);
+    $app['config']->set('view.compiled', $tmpStorage . '/framework/views');
+    $app['config']->set('session.driver', 'cookie');
+    $app['config']->set('cache.default', 'array');
+    $app['config']->set('logging.default', 'stderr');
 
-    $app->booted(function () use ($app, $tmpStorage) {
-        $config = $app->make('config');
-        $config->set('view.compiled', $tmpStorage . '/framework/views');
-        $config->set('session.driver', 'cookie');
-        $config->set('cache.default', 'array');
-        $config->set('logging.default', 'stderr');
-    });
+    // 2. تسجيل الـ View Provider صراحة للتأكد من وجود 'view' في الحاوية
+    $app->register(Illuminate\View\ViewServiceProvider::class);
 
     $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
@@ -55,7 +55,6 @@ try {
     $response->send();
     $kernel->terminate($request, $response);
 } catch (\Throwable $e) {
-    // طباعة الخطأ الحقيقي مباشرة على الشاشة بدلاً من صفحة 500 البيضاء
     http_response_code(500);
     echo '<h1>Laravel Exception Details:</h1>';
     echo '<p><b>Message:</b> ' . htmlspecialchars($e->getMessage()) . '</p>';
