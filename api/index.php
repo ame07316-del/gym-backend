@@ -5,6 +5,7 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 $tmpStorage = '/tmp/storage';
+$tmpBootstrapCache = '/tmp/bootstrap/cache';
 
 $directories = [
     $tmpStorage . '/app',
@@ -13,6 +14,7 @@ $directories = [
     $tmpStorage . '/framework/views',
     $tmpStorage . '/logs',
     $tmpStorage . '/database',
+    $tmpBootstrapCache,
 ];
 
 foreach ($directories as $dir) {
@@ -51,15 +53,15 @@ try {
     require __DIR__ . '/../vendor/autoload.php';
     $app = require_once __DIR__ . '/../bootstrap/app.php';
 
+    // 1. إعادة توجيه مسارات الـ Storage والـ Bootstrap Cache القابلة للكتابة إلى /tmp
     $app->useStoragePath($tmpStorage);
+    $app->useBootstrapPath('/tmp/bootstrap');
 
-    // 1. استدعاء الـ Kernel
+    // 2. تشغيل الـ Kernel
     $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
-
-    // 2. اجبار لارافيل على تحميل كافة الـ Bootstrappers فوراً (هذا يضمن تحميل view و config وغيرها)
     $kernel->bootstrap();
 
-    // 3. التعامل مع الطلب
+    // 3. معالجة الطلب
     $request = Illuminate\Http\Request::capture();
     $response = $kernel->handle($request);
 
