@@ -16,30 +16,18 @@ foreach ($directories as $dir) {
     }
 }
 
-// 1. فرض إعدادات الـ Environment والـ Debug من الكود مباشرة
-putenv('APP_ENV=production');
-putenv('APP_DEBUG=true');
-putenv('LOG_CHANNEL=stderr');
-putenv('CACHE_STORE=array');
-putenv('SESSION_DRIVER=cookie');
-
-// ضع هنا مفتاح APP_KEY الخاص بك من ملف .env المحلي إذا لم يكن موجوداً
-if (!getenv('base64:pauv5+vQ80eGUEbLuPJwPQJOaEZQjCHeeNRb6+Q0xec=')) {
-    putenv('APP_KEY=base64:pauv5+vQ80eGUEbLuPJwPQJOaEZQjCHeeNRb6+Q0xec=');
-}
-
 require __DIR__ . '/../vendor/autoload.php';
 $app = require_once __DIR__ . '/../bootstrap/app.php';
 
 $app->useStoragePath($tmpStorage);
 
-// 2. إجبار Laravel على تفعيل الـ Debug والمشغلات الآمنة
-$app->booted(function () use ($app) {
+// ضبط مسار الـ Views Compiled والـ Cache على مجلد /tmp المتاح للكتبة في Vercel
+$app->booted(function () use ($app, $tmpStorage) {
     $config = $app->make('config');
-    $config->set('app.debug', true);
-    $config->set('logging.default', 'stderr');
+    $config->set('view.compiled', $tmpStorage . '/framework/views');
     $config->set('session.driver', 'cookie');
     $config->set('cache.default', 'array');
+    $config->set('logging.default', 'stderr');
 });
 
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
