@@ -1,5 +1,9 @@
 <?php
 
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 $tmpStorage = '/tmp/storage';
 
 $directories = [
@@ -17,7 +21,7 @@ foreach ($directories as $dir) {
     }
 }
 
-// نقل أو إنشاء قاعدة بيانات SQLite في /tmp
+// تجهيز قاعدة البيانات
 $dbPath = $tmpStorage . '/database/database.sqlite';
 if (!file_exists($dbPath)) {
     if (file_exists(__DIR__ . '/../database/database.sqlite')) {
@@ -27,8 +31,8 @@ if (!file_exists($dbPath)) {
     }
 }
 
-// ضبط متغيرات البيئة
-putenv('APP_ENV=local');
+// ضبط البيئة
+putenv('APP_ENV=production');
 putenv('APP_DEBUG=true');
 putenv('LOG_CHANNEL=stderr');
 putenv('DB_CONNECTION=sqlite');
@@ -49,18 +53,22 @@ try {
 
     $app->useStoragePath($tmpStorage);
 
+    // 1. استدعاء الـ Kernel
     $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
-    $response = $kernel->handle(
-        $request = Illuminate\Http\Request::capture()
-    );
+    // 2. اجبار لارافيل على تحميل كافة الـ Bootstrappers فوراً (هذا يضمن تحميل view و config وغيرها)
+    $kernel->bootstrap();
+
+    // 3. التعامل مع الطلب
+    $request = Illuminate\Http\Request::capture();
+    $response = $kernel->handle($request);
 
     $response->send();
     $kernel->terminate($request, $response);
 } catch (\Throwable $e) {
     http_response_code(500);
-    echo '<h1>Deployment Exception:</h1>';
+    echo '<h1>Real Error Uncovered:</h1>';
     echo '<p><b>Message:</b> ' . htmlspecialchars($e->getMessage()) . '</p>';
     echo '<p><b>File:</b> ' . htmlspecialchars($e->getFile()) . ' on line ' . $e->getLine() . '</p>';
-    echo '<pre>' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
+    echo '<h3>Trace:</h3><pre>' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
 }
