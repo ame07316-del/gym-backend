@@ -1,11 +1,7 @@
 <?php
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
+// 1. إنشاء مجلدات الـ Storage المؤقتة في Serverless
 $tmpStorage = '/tmp/storage';
-
 $directories = [
     $tmpStorage . '/app',
     $tmpStorage . '/framework/cache/data',
@@ -20,11 +16,13 @@ foreach ($directories as $dir) {
     }
 }
 
+// 2. إعداد قيم البيئة الأساسية
 putenv('APP_ENV=production');
 putenv('APP_DEBUG=true');
 putenv('LOG_CHANNEL=stderr');
 putenv('CACHE_STORE=array');
 putenv('SESSION_DRIVER=cookie');
+putenv('VIEW_COMPILED_PATH=' . $tmpStorage . '/framework/views');
 
 if (empty($_ENV['APP_KEY']) && empty(getenv('APP_KEY'))) {
     $defaultKey = 'base64:pauv5+vQ80eGUEbLuPJwPQJOaEZQjCHeeNRb6+Q0XMs=';
@@ -32,31 +30,11 @@ if (empty($_ENV['APP_KEY']) && empty(getenv('APP_KEY'))) {
     $_ENV['APP_KEY'] = $defaultKey;
 }
 
-try {
-    require __DIR__ . '/../vendor/autoload.php';
-    $app = require_once __DIR__ . '/../bootstrap/app.php';
+// 3. تحميل Bootstrap من لارافيل
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
 
-    // 1. تغيير مسار التخزين
-    $app->useStoragePath($tmpStorage);
+// 4. تعيين المسار وإرسال الطلب عبر المعالج الافتراضي
+$app->useStoragePath($tmpStorage);
 
-    // 2. إنشاء الـ Kernel وبدء تشغيله كاملاً ليقوم بتسجيل الـ Services تلقائياً
-    $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
-
-    // 3. التقاط الطلب ومعالجته
-    $request = Illuminate\Http\Request::capture();
-    $response = $kernel->handle($request);
-
-    // 4. ضبط مسار الـ View Compiled بعد اكتمال التحميل
-    if ($app->bound('config')) {
-        $app['config']->set('view.compiled', $tmpStorage . '/framework/views');
-    }
-
-    $response->send();
-    $kernel->terminate($request, $response);
-} catch (\Throwable $e) {
-    http_response_code(500);
-    echo '<h1>Laravel Exception Details:</h1>';
-    echo '<p><b>Message:</b> ' . htmlspecialchars($e->getMessage()) . '</p>';
-    echo '<p><b>File:</b> ' . htmlspecialchars($e->getFile()) . ' on line ' . $e->getLine() . '</p>';
-    echo '<h3>Trace:</h3><pre>' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
-}
+return $app;
