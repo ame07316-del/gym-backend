@@ -2,7 +2,6 @@
 
 $tmpStorage = '/tmp/storage';
 
-// 1. بناء هيكل مجلدات Laravel الأساسية لتجنب أي أخطاء متعلقة بالكتابة
 $directories = [
     $tmpStorage . '/app',
     $tmpStorage . '/framework/cache/data',
@@ -17,14 +16,16 @@ foreach ($directories as $dir) {
     }
 }
 
-// 2. تحميل التطبيق
+// تعيين قيم حماية افتراضية يقرأها Laravel فوراً
+$_ENV['LOG_CHANNEL'] = $_ENV['LOG_CHANNEL'] ?? 'stderr';
+$_ENV['CACHE_STORE'] = $_ENV['CACHE_STORE'] ?? 'file';
+$_ENV['SESSION_DRIVER'] = $_ENV['SESSION_DRIVER'] ?? 'cookie';
+
 require __DIR__ . '/../vendor/autoload.php';
 $app = require_once __DIR__ . '/../bootstrap/app.php';
 
-// 3. توجيه Storage بالكامل إلى المجلد المؤقت الجديد
 $app->useStoragePath($tmpStorage);
 
-// 4. تشغيل الطلب
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
 $response = $kernel->handle(
