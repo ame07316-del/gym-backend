@@ -16,15 +16,18 @@ foreach ($directories as $dir) {
     }
 }
 
-// تعيين قيم حماية افتراضية يقرأها Laravel فوراً
-$_ENV['LOG_CHANNEL'] = $_ENV['LOG_CHANNEL'] ?? 'stderr';
-$_ENV['CACHE_STORE'] = $_ENV['CACHE_STORE'] ?? 'file';
-$_ENV['SESSION_DRIVER'] = $_ENV['SESSION_DRIVER'] ?? 'cookie';
-
 require __DIR__ . '/../vendor/autoload.php';
 $app = require_once __DIR__ . '/../bootstrap/app.php';
 
 $app->useStoragePath($tmpStorage);
+
+// تعديل القيم داخل حاوية الإعدادات مباشرة لمنع تحرير أي Driver فارغ
+$app->booted(function () use ($app, $tmpStorage) {
+    $config = $app->make('config');
+    $config->set('logging.default', 'stderr');
+    $config->set('session.driver', 'cookie');
+    $config->set('cache.default', 'array');
+});
 
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
