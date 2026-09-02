@@ -34,6 +34,7 @@ if (!file_exists($dbPath)) {
 }
 
 // ضبط البيئة
+putenv('ASSET_URL=/');
 putenv('APP_ENV=production');
 putenv('APP_DEBUG=true');
 putenv('LOG_CHANNEL=stderr');
