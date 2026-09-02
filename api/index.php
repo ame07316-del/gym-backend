@@ -20,13 +20,11 @@ foreach ($directories as $dir) {
     }
 }
 
-// 1. تعيين متغيرات البيئة قبل تشغيل Framework
 putenv('APP_ENV=production');
 putenv('APP_DEBUG=true');
 putenv('LOG_CHANNEL=stderr');
 putenv('CACHE_STORE=array');
 putenv('SESSION_DRIVER=cookie');
-putenv('VIEW_COMPILED_PATH=' . $tmpStorage . '/framework/views');
 
 if (empty($_ENV['APP_KEY']) && empty(getenv('APP_KEY'))) {
     $defaultKey = 'base64:pauv5+vQ80eGUEbLuPJwPQJOaEZQjCHeeNRb6+Q0XMs=';
@@ -38,15 +36,20 @@ try {
     require __DIR__ . '/../vendor/autoload.php';
     $app = require_once __DIR__ . '/../bootstrap/app.php';
 
-    // 2. تعيين مسار التخزين المؤقت
+    // 1. تغيير مسار التخزين
     $app->useStoragePath($tmpStorage);
 
-    // 3. معالجة الطلب عبر الـ Kernel مباشرة
+    // 2. إنشاء الـ Kernel وبدء تشغيله كاملاً ليقوم بتسجيل الـ Services تلقائياً
     $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
-    $response = $kernel->handle(
-        $request = Illuminate\Http\Request::capture()
-    );
+    // 3. التقاط الطلب ومعالجته
+    $request = Illuminate\Http\Request::capture();
+    $response = $kernel->handle($request);
+
+    // 4. ضبط مسار الـ View Compiled بعد اكتمال التحميل
+    if ($app->bound('config')) {
+        $app['config']->set('view.compiled', $tmpStorage . '/framework/views');
+    }
 
     $response->send();
     $kernel->terminate($request, $response);
