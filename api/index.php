@@ -1,25 +1,28 @@
 <?php
 
-// 1. إنشاء المجلدات المؤقتة داخل /tmp
-$tmpDir = '/tmp';
-@mkdir($tmpDir . '/views', 0755, true);
-@mkdir($tmpDir . '/sessions', 0755, true);
-@mkdir($tmpDir . '/cache', 0755, true);
+$tmpStorage = '/tmp/storage';
 
-// 2. تحميل الـ Autoloader والتطبيق
+// 1. بناء هيكل مجلدات Laravel الأساسية لتجنب أي أخطاء متعلقة بالكتابة
+$directories = [
+    $tmpStorage . '/app',
+    $tmpStorage . '/framework/cache/data',
+    $tmpStorage . '/framework/sessions',
+    $tmpStorage . '/framework/views',
+    $tmpStorage . '/logs',
+];
+
+foreach ($directories as $dir) {
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+}
+
+// 2. تحميل التطبيق
 require __DIR__ . '/../vendor/autoload.php';
 $app = require_once __DIR__ . '/../bootstrap/app.php';
 
-// 3. تعيين المسارات المؤقتة وإعدادات الـ Logging والـ Cache بأمان
-$app->useStoragePath($tmpDir);
-
-config([
-    'logging.default' => 'stderr',
-    'view.compiled' => $tmpDir . '/views',
-    'session.driver' => 'cookie',
-    'cache.default' => 'file',
-    'cache.stores.file.path' => $tmpDir . '/cache',
-]);
+// 3. توجيه Storage بالكامل إلى المجلد المؤقت الجديد
+$app->useStoragePath($tmpStorage);
 
 // 4. تشغيل الطلب
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
@@ -29,5 +32,4 @@ $response = $kernel->handle(
 );
 
 $response->send();
-
 $kernel->terminate($request, $response);
