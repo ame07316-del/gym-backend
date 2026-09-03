@@ -23,7 +23,6 @@ foreach ($directories as $dir) {
     }
 }
 
-// تجهيز قاعدة البيانات
 $dbPath = $tmpStorage . '/database/database.sqlite';
 if (!file_exists($dbPath)) {
     if (file_exists(__DIR__ . '/../database/database.sqlite')) {
@@ -33,17 +32,16 @@ if (!file_exists($dbPath)) {
     }
 }
 
-// ضبط بيئة التشغيل
+// إجبار Laravel على عدم الالتزام بـ Secure Cookie لتجاوز تحذير Dangerous في Chrome
 putenv('ASSET_URL=/');
 putenv('APP_ENV=production');
 putenv('APP_DEBUG=true');
 putenv('LOG_CHANNEL=stderr');
 putenv('DB_CONNECTION=sqlite');
 putenv("DB_DATABASE={$dbPath}");
-
-// التغيير الجوهري لحل مشكلة الـ Auth اللانهائية على Serverless:
-putenv('CACHE_STORE=array');
-putenv('SESSION_DRIVER=array'); // استخدام array للمرور الفوري بدون قيود الـ Session
+putenv('CACHE_STORE=file');
+putenv('SESSION_DRIVER=file');
+putenv('SESSION_SECURE_COOKIE=false');
 putenv('VIEW_COMPILED_PATH=' . $tmpStorage . '/framework/views');
 
 if (empty($_ENV['APP_KEY']) && empty(getenv('APP_KEY'))) {
@@ -62,26 +60,17 @@ try {
     $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
     $kernel->bootstrap();
 
-    // السحر هنا: تخطي حماية الـ CSRF لروابط الـ Admin لتجاوز قفل الـ Cookies في Vercel
-    if ($app->bound('config')) {
-        $app['config']->set('session.driver', 'cookie');
-        $app['config']->set('session.encrypt', false);
-    }
-
-    if (!file_exists($tmpStorage . '/installed.lock')) {
-        try {
-            \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-            \App\Models\User::updateOrCreate(
-                ['email' => 'admin@admin.com'],
-                [
-                    'name' => 'Admin',
-                    'password' => \Illuminate\Support\Facades\Hash::make('12345678'),
-                ]
-            );
-            file_put_contents($tmpStorage . '/installed.lock', 'locked');
-        } catch (\Throwable $ex) {
-            // تجاهل
-        }
+    // عمل Migrate و Create User
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        \App\Models\User::updateOrCreate(
+            ['email' => 'admin@admin.com'],
+            [
+                'name' => 'Admin',
+                'password' => \Illuminate\Support\Facades\Hash::make('12345678'),
+            ]
+        );
+    } catch (\Throwable $ex) {
     }
 
     $request = Illuminate\Http\Request::capture();
