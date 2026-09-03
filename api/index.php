@@ -23,7 +23,7 @@ foreach ($directories as $dir) {
     }
 }
 
-// تجهيز قاعدة البيانات
+// تجهيز قاعدة البيانات SQLite
 $dbPath = $tmpStorage . '/database/database.sqlite';
 if (!file_exists($dbPath)) {
     if (file_exists(__DIR__ . '/../database/database.sqlite')) {
@@ -33,7 +33,7 @@ if (!file_exists($dbPath)) {
     }
 }
 
-// ضبط البيئة
+// ضبط البيئة والـ Sessions والـ Cookies
 putenv('ASSET_URL=/');
 putenv('APP_ENV=production');
 putenv('APP_DEBUG=true');
@@ -41,7 +41,8 @@ putenv('LOG_CHANNEL=stderr');
 putenv('DB_CONNECTION=sqlite');
 putenv("DB_DATABASE={$dbPath}");
 putenv('CACHE_STORE=array');
-putenv('SESSION_DRIVER=cookie');
+putenv('SESSION_DRIVER=cookie'); // حفظ الـ Session في الكوكي لعدم فقدان تسجيل الدخول
+putenv('SESSION_LIFETIME=120');
 putenv('VIEW_COMPILED_PATH=' . $tmpStorage . '/framework/views');
 
 if (empty($_ENV['APP_KEY']) && empty(getenv('APP_KEY'))) {
@@ -54,21 +55,29 @@ try {
     require __DIR__ . '/../vendor/autoload.php';
     $app = require_once __DIR__ . '/../bootstrap/app.php';
 
-    // 1. إعادة توجيه مسارات الـ Storage والـ Bootstrap Cache القابلة للكتابة إلى /tmp
     $app->useStoragePath($tmpStorage);
     $app->useBootstrapPath('/tmp/bootstrap');
 
-    // 2. تشغيل الـ Kernel
     $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
     $kernel->bootstrap();
-    // تشغيل الـ Migrations والـ Seeders تلقائياً عند أول طلب لو البيانات مش موجودة
-    try {
-        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
-    } catch (\Throwable $e) {
-        // تجاهل لو الجداول موجودة بالفعل
+
+    // إنشاء الجداول والأدمن تلقائياً مرة واحدة عند أول تشغيل
+    if (!file_exists($tmpStorage . '/installed.lock')) {
+        try {
+            \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+            \App\Models\User::updateOrCreate(
+                ['email' => 'admin@admin.com'],
+                [
+                    'name' => 'Admin',
+                    'password' => \Illuminate\Support\Facades\Hash::make('12345678'),
+                ]
+            );
+            file_put_contents($tmpStorage . '/installed.lock', 'locked');
+        } catch (\Throwable $ex) {
+            // تجاهل لو الجداول أنشئت بالفعل
+        }
     }
-    // 3. معالجة الطلب
+
     $request = Illuminate\Http\Request::capture();
     $response = $kernel->handle($request);
 
@@ -76,7 +85,7 @@ try {
     $kernel->terminate($request, $response);
 } catch (\Throwable $e) {
     http_response_code(500);
-    echo '<h1>Real Error Uncovered:</h1>';
+    echo '<h1>Deployment Exception:</h1>';
     echo '<p><b>Message:</b> ' . htmlspecialchars($e->getMessage()) . '</p>';
     echo '<p><b>File:</b> ' . htmlspecialchars($e->getFile()) . ' on line ' . $e->getLine() . '</p>';
     echo '<h3>Trace:</h3><pre>' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
