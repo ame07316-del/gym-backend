@@ -33,7 +33,7 @@ if (!file_exists($dbPath)) {
     }
 }
 
-// ضبط البيئة والـ Sessions والـ Cookies
+// ضبط بيئة الـ Session والـ Cookies لتعمل في Vercel Serverless
 putenv('ASSET_URL=/');
 putenv('APP_ENV=production');
 putenv('APP_DEBUG=true');
@@ -41,8 +41,13 @@ putenv('LOG_CHANNEL=stderr');
 putenv('DB_CONNECTION=sqlite');
 putenv("DB_DATABASE={$dbPath}");
 putenv('CACHE_STORE=array');
-putenv('SESSION_DRIVER=cookie'); // حفظ الـ Session في الكوكي لعدم فقدان تسجيل الدخول
+
+// التعديل المباشر لحل مشكلة الـ Auth Session
+putenv('SESSION_DRIVER=cookie');
 putenv('SESSION_LIFETIME=120');
+putenv('SESSION_SECURE_COOKIE=true');
+putenv('SESSION_HTTP_ONLY=true');
+putenv('SESSION_SAME_SITE=lax');
 putenv('VIEW_COMPILED_PATH=' . $tmpStorage . '/framework/views');
 
 if (empty($_ENV['APP_KEY']) && empty(getenv('APP_KEY'))) {
@@ -61,7 +66,7 @@ try {
     $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
     $kernel->bootstrap();
 
-    // إنشاء الجداول والأدمن تلقائياً مرة واحدة عند أول تشغيل
+    // التأكد من عمل Migration وإنشاء اليوزر
     if (!file_exists($tmpStorage . '/installed.lock')) {
         try {
             \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
@@ -74,7 +79,7 @@ try {
             );
             file_put_contents($tmpStorage . '/installed.lock', 'locked');
         } catch (\Throwable $ex) {
-            // تجاهل لو الجداول أنشئت بالفعل
+            // تجاهل
         }
     }
 
