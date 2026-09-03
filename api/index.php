@@ -61,7 +61,13 @@ try {
     // 2. تشغيل الـ Kernel
     $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
     $kernel->bootstrap();
-
+    // تشغيل الـ Migrations والـ Seeders تلقائياً عند أول طلب لو البيانات مش موجودة
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
+    } catch (\Throwable $e) {
+        // تجاهل لو الجداول موجودة بالفعل
+    }
     // 3. معالجة الطلب
     $request = Illuminate\Http\Request::capture();
     $response = $kernel->handle($request);
